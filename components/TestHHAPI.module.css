@@ -1,0 +1,77 @@
+.container {
+  padding: 20px;
+  color: #333;
+}
+
+.inputGroup {
+  display: flex;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.input {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: #333;
+  background-color: #fff;
+  flex-grow: 1;
+}
+
+.limitInput {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: #333;
+  background-color: #fff;
+  width: 80px;
+  margin-left: 10px;
+}
+
+.button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.button:disabled {
+  background-color: #cccccc;
+}
+
+.error {
+  color: red;
+  margin-top: 10px;
+}
+
+.companiesList {
+  margin-top: 10px;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.customizationZone {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+}
+
+.customizationZone .inputGroup {
+  justify-content: flex-start;
+}
+
+.customizationZone label {
+  min-width: 150px;
+  margin-right: 10px;
+}

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import VacancyContactTest from './components/VacancyContactTest';  // Add this import
+import dynamic from 'next/dynamic';
 
-// Use the same names as in the oauth-callback route, but with NEXT_PUBLIC_ prefix
-const CLIENT_ID = process.env.NEXT_PUBLIC_HH_CLIENT_ID;
-const REDIRECT_URI = process.env.NEXT_PUBLIC_HH_REDIRECT_URI;
+const VacancyContactTest = dynamic(() => import('./components/VacancyContactTest'), { ssr: false });
+
+const CLIENT_ID = 'PUPM3TF5H8G3NVSBQ0FL36CQ8F8M8KR54J1S5275OBAUM1KA7DR0T6CCL8F0IH3L';
+const REDIRECT_URI = 'http://localhost:3000/api/oauth-callback';
 
 interface ApiAction {
   id: string;
@@ -62,75 +62,77 @@ export default function Home() {
   const [accountType, setAccountType] = useState<'employer' | 'job_seeker' | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [apiLimitLoading, setApiLimitLoading] = useState(false);  // New state for API limit check
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const router = useRouter();
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch('/api/user-data');
-        if (response.ok) {
-          const data = await response.json();
-          setUserInfo(data);
-          // Store the actual access token
-          setAccessToken(data.access_token);
-          setAccountType(data.is_employer ? 'employer' : 'job_seeker');
-        } else if (response.status === 401) {
-          // Not authenticated
-          setAccessToken(null);
-          setUserInfo(null);
-          setAccountType(null);
-        } else {
-          // Other error
-          console.error('Error fetching user data:', await response.text());
-        }
-      } catch (error) {
-        console.error('Error checking auth status:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Check if we have an access token in localStorage
+    const storedToken = localStorage.getItem('accessToken');
+    if (storedToken) {
+      setAccessToken(storedToken);
+      fetchUserInfo(storedToken);
+    }
 
-    checkAuthStatus();
+    // Check if we're returning from the OAuth redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('access_token');
+    if (token) {
+      console.log('Received access token:', token);
+      setAccessToken(token);
+      localStorage.setItem('accessToken', token);
+      fetchUserInfo(token);
+      // Clear the URL parameters
+      window.history.replaceState({}, document.title, "/");
+    }
+
+    const error = urlParams.get('error');
+    if (error) {
+      setError(`Authorization error: ${error}`);
+    }
   }, []);
 
-  const handleAuthorize = () => {
-    if (!CLIENT_ID || !REDIRECT_URI) {
-      console.error('Client ID or Redirect URI is not set');
-      alert('Configuration error. Please check the console and contact the administrator.');
-      return;
+  const fetchUserInfo = async (token: string) => {
+    try {
+      const response = await fetch('https://api.hh.ru/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch user info');
+      }
+      const data: UserInfo = await response.json();
+      setUserInfo(data);
+      setAccountType(data.is_employer ? 'employer' : 'job_seeker');
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+      setError('Failed to fetch user info');
     }
+  };
+
+  const handleAuthorize = () => {
     const authUrl = `https://hh.ru/oauth/authorize?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
     window.location.href = authUrl;
   };
 
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/logout', { method: 'POST' });
-      setAccessToken(null);
-      setUserInfo(null);
-      setAccountType(null);
-      setApiLimit(null);
-      setSheetUrl('');
-      setError(null);
-      router.push('/');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    setAccessToken(null);
+    setAccountType(null);
+    setUserInfo(null);
+    setApiLimit(null);
+    setSheetUrl('');
+    setError(null);
+    // Remove this line to prevent page reload
+    // window.location.href = '/';
   };
 
   const checkApiLimit = async () => {
     if (!accessToken || !userInfo) {
-      setMessage({ type: 'error', text: 'You must be authorized to check API limit' });
+      setError('You must be authorized to check API limit');
       return;
     }
 
-    setMessage(null);
+    setError(null);
     setApiLimit(null);
-    setApiLimitLoading(true);  // Use the new loading state
+    setIsLoading(true);
 
     try {
       const response = await fetch(`/api/check-api-limit?accessToken=${accessToken}&managerId=${userInfo.id}`);
@@ -139,28 +141,29 @@ export default function Home() {
       }
       const data = await response.json();
       setApiLimit(data);
-      setMessage({ type: 'success', text: 'API limit checked successfully' });
+      setError(null);
     } catch (error) {
       console.error('Error checking API limit:', error);
-      setMessage({ type: 'error', text: `Failed to check API limit: ${error.message}` });
+      setError(`Failed to check API limit: ${error.message}`);
     } finally {
-      setApiLimitLoading(false);  // Reset the new loading state
+      setIsLoading(false);
     }
   };
 
   const handleWriteToSheet = async () => {
     if (!accessToken) {
-      setMessage({ type: 'error', text: 'You must be authorized to perform this action' });
+      setError('You must be authorized to perform this action');
       return;
     }
 
     if (!sheetUrl) {
-      setMessage({ type: 'error', text: 'Please enter a Google Sheet URL' });
+      setError('Please enter a Google Sheet URL');
       return;
     }
 
-    setMessage(null);
-    setActionLoading(true);
+    setError(null);
+    setSuccessMessage('');
+    setIsLoading(true);
 
     try {
       const response = await fetch('/api/write-to-sheet', {
@@ -176,40 +179,30 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to write to Google Sheet');
       }
 
-      await response.json();
-      setMessage({ type: 'success', text: 'Google Sheet updated successfully' });
+      const data = await response.json();
+      setSuccessMessage('Google Sheet updated successfully');
     } catch (error) {
-      setMessage({ type: 'error', text: error.message });
+      setError(error.message);
     } finally {
-      setActionLoading(false);
+      setIsLoading(false);
     }
   };
 
   const isResumeDisabled = activeTab === 'resume' && accountType === 'job_seeker';
   const isVacancyDisabled = activeTab === 'vacancy' && accountType === 'employer';
 
-  // Add this function to handle tab changes
-  const handleTabChange = (tab: 'resume' | 'vacancy') => {
-    setActiveTab(tab);
-    setMessage(null); // Clear the message when changing tabs
-  };
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-8">HH.ru Data Fetcher</h1>
       
       {accessToken ? (
-        <div>
+        userInfo ? (
           <div className="mb-4 flex justify-between items-center">
             <div>
               <span className="mr-2">
-                Logged in as: {userInfo?.first_name} {userInfo?.last_name} ({accountType === 'employer' ? 'Employer' : 'Job Seeker'})
+                Logged in as: {userInfo.first_name} {userInfo.last_name} ({userInfo.is_employer ? 'Employer' : 'Job Seeker'})
               </span>
-              <span className="mr-2">Email: {userInfo?.email}</span>
+              <span className="mr-2">Email: {userInfo.email}</span>
               <button
                 onClick={handleLogout}
                 className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition"
@@ -218,16 +211,29 @@ export default function Home() {
               </button>
             </div>
           </div>
+        ) : (
+          <span>Loading user information...</span>
+        )
+      ) : (
+        <button
+          onClick={handleAuthorize}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+        >
+          Authorize with HH.ru
+        </button>
+      )}
 
+      {accessToken && (
+        <div>
           <div className="mb-4">
             <button
-              onClick={() => handleTabChange('resume')}
+              onClick={() => setActiveTab('resume')}
               className={`px-4 py-2 mr-2 rounded ${activeTab === 'resume' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               Resume Fetcher
             </button>
             <button
-              onClick={() => handleTabChange('vacancy')}
+              onClick={() => setActiveTab('vacancy')}
               className={`px-4 py-2 rounded ${activeTab === 'vacancy' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               Vacancy Fetcher
@@ -274,26 +280,39 @@ export default function Home() {
                 onChange={(e) => setSheetUrl(e.target.value)}
                 placeholder="Enter Google Sheet URL"
                 className="w-full p-2 border rounded mb-4"
-                disabled={isResumeDisabled || actionLoading}
+                disabled={isResumeDisabled || isLoading}
               />
               <button
                 onClick={handleWriteToSheet}
                 className={`bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-4 ${
-                  isResumeDisabled || actionLoading ? 'opacity-50 cursor-not-allowed' : ''
+                  isResumeDisabled || isLoading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
-                disabled={isResumeDisabled || actionLoading}
+                disabled={isResumeDisabled || isLoading}
               >
-                {actionLoading ? 'Updating...' : 'Write to Google Sheet'}
+                {isLoading ? 'Updating...' : 'Write to Google Sheet'}
               </button>
               <button
                 onClick={checkApiLimit}
                 className={`bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition ${
-                  isResumeDisabled || apiLimitLoading ? 'opacity-50 cursor-not-allowed' : ''
+                  isResumeDisabled || isLoading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
-                disabled={isResumeDisabled || apiLimitLoading}
+                disabled={isResumeDisabled || isLoading}
               >
-                {apiLimitLoading ? 'Checking...' : 'Check API Limit'}
+                Check API Limit
               </button>
+
+              {isLoading && (
+                <div className="mt-4 text-center">
+                  <p className="text-lg font-semibold">Loading...</p>
+                  <p className="text-sm text-gray-500">This may take a few moments</p>
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="mt-4 p-4 bg-green-100 text-green-700 rounded">
+                  {successMessage}
+                </div>
+              )}
             </div>
           )}
 
@@ -342,21 +361,9 @@ export default function Home() {
             </div>
           )}
         </div>
-      ) : (
-        <button
-          onClick={handleAuthorize}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-        >
-          Authorize with HH.ru
-        </button>
       )}
 
       {error && <p className="text-red-500 mt-4">{error}</p>}
-      {message && (
-        <div className={`mt-4 p-4 ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} rounded`}>
-          {message.text}
-        </div>
-      )}
 
       {apiLimit && activeTab === 'resume' && (
         <div className="mt-4 p-4 bg-gray-100 rounded">
