@@ -193,8 +193,8 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
     }
 
     return resumeInfo;
-  } catch (error) {
-    console.error(`Error processing resume ${resumeId}:`, error);
+  } catch (error: unknown) {
+    console.error(`Error processing resume ${resumeId}:`, error instanceof Error ? error.message : String(error));
     return null;
   }
 }

@@ -206,8 +206,8 @@ async function fetchVacancyContactInfo(
       try {
         const info = await fetchSingleVacancyInfo(link, accessToken, log);
         vacancyInfos.push(info);
-      } catch (error) {
-        log(`Error fetching vacancy info for ${link}: ${error.message}`);
+      } catch (error: unknown) {
+        log(`Error fetching vacancy info for ${link}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     return vacancyInfos;
@@ -247,8 +247,8 @@ async function fetchSingleVacancyInfo(vacancyLink: string, accessToken: string, 
     const vacancyData = await vacancyResponse.json();
     log(`Successfully fetched vacancy data for ID: ${vacancyId}`);
     return vacancyData;
-  } catch (error) {
-    log(`Error fetching vacancy data: ${error.message}`);
+  } catch (error: unknown) {
+    log(`Error fetching vacancy data: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
@@ -310,23 +310,29 @@ async function ensureSheetExists(sheets: any, sheetId: string, sheetName: string
       ranges: [`${sheetName}!A1`],
     });
     log(`Sheet "${sheetName}" already exists`);
-  } catch (error) {
+  } catch (error: unknown) {
     // Sheet doesn't exist, create it
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: sheetId,
-      resource: {
-        requests: [
-          {
-            addSheet: {
-              properties: {
-                title: sheetName,
+    if (error instanceof Error && error.message.includes('not found')) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        resource: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: sheetName,
+                },
               },
             },
-          },
-        ],
-      },
-    });
-    log(`Created new sheet: ${sheetName}`);
+          ],
+        },
+      });
+      log(`Created new sheet: ${sheetName}`);
+    } else {
+      // If it's not the expected error, rethrow it
+      log(`Unexpected error while checking sheet existence: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
   }
 }
 
