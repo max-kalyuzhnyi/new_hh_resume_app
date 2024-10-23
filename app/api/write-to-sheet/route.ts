@@ -33,9 +33,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       message: 'Google Sheet updated successfully'
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error processing Google Sheet:', error);
-    return NextResponse.json({ error: 'Failed to process Google Sheet', details: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to process Google Sheet', 
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }
 

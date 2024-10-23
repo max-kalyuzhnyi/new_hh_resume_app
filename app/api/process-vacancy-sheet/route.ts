@@ -52,12 +52,12 @@ export async function POST(request: NextRequest) {
       updatedRows: newData,
       apiResponses: newData.map(row => row.apiResponse)
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error processing Google Sheet:', error);
     return NextResponse.json({ 
       error: 'Failed to process Google Sheet', 
-      details: error.message,
-      stack: error.stack,
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
       logs: logs
     }, { status: 500 });
   }
@@ -419,4 +419,3 @@ function extractVacancyLinks($: cheerio.CheerioAPI): string[] {
   
   return vacancyLinks;
 }
-
