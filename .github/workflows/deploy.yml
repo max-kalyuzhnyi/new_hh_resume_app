@@ -1,0 +1,20 @@
+on:
+    push:
+      branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use secret
+        env:
+          HH_CLIENT_ID: ${{ secrets.HH_CLIENT_ID }}
+          HH_CLIENT_SECRET: ${{ secrets.HH_CLIENT_SECRET }}
+          HH_REDIRECT_URI: ${{ secrets.HH_REDIRECT_URI }}
+          NEXT_PUBLIC_HH_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_HH_CLIENT_ID }}
+          NEXT_PUBLIC_HH_REDIRECT_URI: ${{ secrets.NEXT_PUBLIC_HH_REDIRECT_URI }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+
+        run: |
+          echo "Using secrets"
