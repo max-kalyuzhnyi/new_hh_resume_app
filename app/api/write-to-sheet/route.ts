@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     console.log('Sheet data processed:', updatedRows.length, 'rows');
 
     console.log('Writing data to Google Sheet...');
-    await writeToGoogleSheet(sheetId, updatedRows);
+    await writeToGoogleSheet(sheetId, updatedRows, console.log);
     console.log('Data written to Google Sheet');
 
     return NextResponse.json({ 
@@ -83,7 +83,7 @@ async function fetchSheetData(sheetId: string): Promise<string[][]> {
   return rows;
 }
 
-async function processSheetData(sheetData: string[][], accessToken: string): Promise<{ [key: string]: string }[]> {
+async function processSheetData(sheetData: string[][], accessToken: string): Promise<{ rowIndex: number, fullName: string, currentTitle: string, phone: string, email: string }[]> {
   const headers = sheetData[0];
   const columnIndexes = {
     fullName: headers.indexOf('Full name'),
@@ -103,14 +103,14 @@ async function processSheetData(sheetData: string[][], accessToken: string): Pro
     
     return {
       rowIndex: rowIndex + 2,
-      fullName: resumeInfo.fullName,
-      currentTitle: resumeInfo.currentTitle,
-      phone: resumeInfo.phone,
-      email: resumeInfo.email
+      fullName: resumeInfo.fullName || '',
+      currentTitle: resumeInfo.currentTitle || '',
+      phone: resumeInfo.phone || '',
+      email: resumeInfo.email || ''
     };
   }));
 
-  return updatedRows.filter(row => row !== null);
+  return updatedRows.filter((row): row is { rowIndex: number, fullName: string, currentTitle: string, phone: string, email: string } => row !== null);
 }
 
 function extractSheetId(url: string): string | null {
@@ -199,7 +199,7 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
   }
 }
 
-async function writeToGoogleSheet(sheetId: string, data: { rowIndex: number, fullName: string, currentTitle: string, phone: string, email: string }[]) {
+async function writeToGoogleSheet(sheetId: string, data: { rowIndex: number, fullName: string, currentTitle: string, phone: string, email: string }[], log: (message: string) => void) {
   const auth = await getGoogleAuth();
   const sheets = google.sheets({ version: 'v4', auth });
 
@@ -220,7 +220,7 @@ async function writeToGoogleSheet(sheetId: string, data: { rowIndex: number, ful
       requestBody: { values: dataToWrite },
     });
 
-    console.log(`Written ${data.length} rows to "Resume" sheet`);
+    log(`Written ${data.length} rows to "Resume" sheet`);
   } catch (error: unknown) {
     console.error('Error writing to Google Sheet:', error instanceof Error ? error.message : String(error));
     throw error; // Re-throw the error to be handled by the caller
