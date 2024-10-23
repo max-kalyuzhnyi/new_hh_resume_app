@@ -369,9 +369,6 @@ function formatDataForDisplay(sheetData: string[][], updatedRows: { [key: string
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// In your processing loop:
-await delay(1000); // 1 second delay between requests
-
 async function getIndividualVacancyLinks(employerUrl: string, log: (message: string) => void, vacancyLimit: number = 3): Promise<string[]> {
   log(`Fetching employer page: ${employerUrl}`);
   const response = await fetch(employerUrl);
@@ -394,6 +391,7 @@ async function getIndividualVacancyLinks(employerUrl: string, log: (message: str
       const fullUrl = `https://hh.ru/vacancy/${vacancyId}`;
       vacancyLinks.push(fullUrl);
       log(`Found vacancy with contacts: ${name} - ${fullUrl}`);
+      await delay(1000); // 1 second delay between requests
     } else {
       log(`Skipping vacancy without contacts: ${name}`);
     }
