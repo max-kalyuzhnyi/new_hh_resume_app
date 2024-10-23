@@ -203,34 +203,28 @@ async function writeToGoogleSheet(sheetId: string, data: { rowIndex: number, ful
   const auth = await getGoogleAuth();
   const sheets = google.sheets({ version: 'v4', auth });
 
-  const updates = data.flatMap(row => [
-    {
-      range: `Resume!D${row.rowIndex}`,
-      values: [[row.fullName]]
-    },
-    {
-      range: `Resume!E${row.rowIndex}`,
-      values: [[row.currentTitle]]
-    },
-    {
-      range: `Resume!F${row.rowIndex}`,
-      values: [[row.phone]]
-    },
-    {
-      range: `Resume!G${row.rowIndex}`,
-      values: [[row.email]]
-    }
-  ]);
+  try {
+    // Prepare data for writing
+    const dataToWrite = data.map(row => [
+      row.fullName,
+      row.currentTitle,
+      row.phone,
+      row.email
+    ]);
 
-  const batchUpdateRequest = {
-    spreadsheetId: sheetId,
-    resource: {
+    // Write data
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: 'Resume!D2',
       valueInputOption: 'RAW',
-      data: updates
-    }
-  };
+      requestBody: { values: dataToWrite },
+    });
 
-  await sheets.spreadsheets.values.batchUpdate(batchUpdateRequest);
+    console.log(`Written ${data.length} rows to "Resume" sheet`);
+  } catch (error: unknown) {
+    console.error('Error writing to Google Sheet:', error instanceof Error ? error.message : String(error));
+    throw error; // Re-throw the error to be handled by the caller
+  }
 }
 
 async function getGoogleAuth() {

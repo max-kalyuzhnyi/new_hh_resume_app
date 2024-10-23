@@ -287,7 +287,7 @@ async function writeToGoogleSheet(sheetId: string, newData: { [key: string]: any
     spreadsheetId: sheetId,
     range: 'Vacancies_output!A1',
     valueInputOption: 'RAW',
-    resource: { values: dataToWrite },
+    requestBody: { values: dataToWrite },
   });
 
   log(`Written ${newData.length} vacancies to "Vacancies_output" sheet`);
