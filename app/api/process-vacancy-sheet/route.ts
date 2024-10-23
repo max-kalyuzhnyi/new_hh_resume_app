@@ -253,7 +253,7 @@ async function fetchSingleVacancyInfo(vacancyLink: string, accessToken: string, 
   }
 }
 
-async function writeToGoogleSheet(sheetId: string, newData: { companyName: string, inn: string, fullName: string, email: string, phone: string, phoneComment: string, individualVacancyLink: string }[], log: (message: string) => void) {
+async function writeToGoogleSheet(sheetId: string, newData: { [key: string]: any }[], log: (message: string) => void) {
   const auth = await getGoogleAuth();
   const sheets = google.sheets({ version: 'v4', auth });
 
@@ -339,12 +339,12 @@ async function getGoogleAuth() {
   return auth;
 }
 
-function formatDataForDisplay(sheetData: string[][], updatedRows: { [key: string]: string }[]): string {
-  const headers = ['Company name', 'Link to vacancy', 'Full name', 'Email', 'Phone', 'Phone Comment'];
+function formatDataForDisplay(sheetData: string[][], updatedRows: { [key: string]: any }[]): string {
+  const headers = ['Company name', 'Individual Vacancy Link', 'Full name', 'Email', 'Phone', 'Phone Comment'];
   let output = headers.join('\t') + '\n';
 
   updatedRows.forEach(row => {
-    output += `${row.companyName}\t${row.vacancyLink}\t${row.fullName}\t${row.email}\t${row.phone}\t${row.phoneComment}\n`;
+    output += `${row.companyName}\t${row.individualVacancyLink}\t${row.fullName}\t${row.email}\t${row.phone}\t${row.phoneComment}\n`;
   });
 
   return output;
