@@ -23,7 +23,7 @@ interface ApiLimitInfo {
 }
 
 interface ManagerApiLimitInfo extends ApiLimitInfo {
-  managerActions: ApiActionInfo[];
+  managerActions?: ApiActionInfo[]; // Make this optional
 }
 
 export async function GET(request: NextRequest) {
@@ -118,7 +118,7 @@ async function checkApiLimit(accessToken: string, employerId: string, managerId:
 
   return {
     actions,
-    managerActions,
+    ...(managerActions && { managerActions }), // Only include if not null
     message: managerData 
       ? 'API limit information retrieved successfully for both employer and manager.'
       : 'API limit information retrieved successfully for employer. Manager data not available.'
