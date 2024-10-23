@@ -2,15 +2,19 @@ import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 
 // Remove hardcoded values
-const CLIENT_ID = process.env.HH_CLIENT_ID;
-const CLIENT_SECRET = process.env.HH_CLIENT_SECRET;
-const REDIRECT_URI = process.env.HH_REDIRECT_URI;
+const CLIENT_ID = process.env.HH_CLIENT_ID || '';
+const CLIENT_SECRET = process.env.HH_CLIENT_SECRET || '';
+const REDIRECT_URI = process.env.HH_REDIRECT_URI || '';
 
 console.log('CLIENT_ID:', CLIENT_ID);
 console.log('CLIENT_SECRET:', CLIENT_SECRET);
 console.log('REDIRECT_URI:', REDIRECT_URI);
 
 async function getAccessToken(code: string) {
+  if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+    throw new Error('Missing required environment variables');
+  }
+
   const response = await fetch('https://hh.ru/oauth/token', {
     method: 'POST',
     headers: {
