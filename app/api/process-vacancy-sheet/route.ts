@@ -167,8 +167,8 @@ async function processSheetData(
           apiResponse: vacancyInfo
         });
       });
-    } catch (error) {
-      log(`Error processing vacancy ${vacancyLink}: ${error.message}`);
+    } catch (error: unknown) {
+      log(`Error processing vacancy ${vacancyLink}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
