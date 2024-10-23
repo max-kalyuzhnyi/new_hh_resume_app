@@ -411,7 +411,7 @@ async function getIndividualVacancyLinks(employerUrl: string, log: (message: str
   return vacancyLinks;
 }
 
-function extractVacancyLinks($: cheerio.CheerioAPI): string[] {
+function extractVacancyLinks($: cheerio.CheerioAPI, log: (message: string) => void): string[] {
   const vacancyLinks: string[] = [];
   
   // Target the specific elements containing vacancy links
