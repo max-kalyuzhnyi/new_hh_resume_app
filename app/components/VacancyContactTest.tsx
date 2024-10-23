@@ -7,6 +7,14 @@ interface VacancyContactTestProps {
   disabled: boolean;
 }
 
+interface UpdatedRow {
+  companyName: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  // Add any other properties that exist in your row object
+}
+
 const VacancyContactTest: React.FC<VacancyContactTestProps> = ({ accessToken, disabled }) => {
   const [sheetUrl, setSheetUrl] = useState('');
   const [vacancyLimit, setVacancyLimit] = useState(5);
@@ -122,7 +130,7 @@ const VacancyContactTest: React.FC<VacancyContactTestProps> = ({ accessToken, di
                   </tr>
                 </thead>
                 <tbody>
-                  {result.updatedRows.map((row, index) => (
+                  {result.updatedRows.map((row: UpdatedRow, index: number) => (
                     <tr key={index}>
                       <td className="border px-4 py-2">{row.companyName}</td>
                       <td className="border px-4 py-2">{row.fullName}</td>

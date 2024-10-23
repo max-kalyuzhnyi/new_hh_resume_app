@@ -5,14 +5,21 @@ import dynamic from 'next/dynamic';
 
 const VacancyContactTest = dynamic(() => import('../components/VacancyContactTest'), { ssr: false });
 
-const CLIENT_ID = process.env.HH_CLIENT_ID;
-const REDIRECT_URI = process.env.HH_REDIRECT_URI;
+const CLIENT_ID = process.env.NEXT_PUBLIC_HH_CLIENT_ID;
+const REDIRECT_URI = process.env.NEXT_PUBLIC_HH_REDIRECT_URI;
 
 export default function TestVacancyPage() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDisabled, setIsDisabled] = useState(false);
 
   useEffect(() => {
+    if (!CLIENT_ID || !REDIRECT_URI) {
+      console.error('Client ID or Redirect URI is not set');
+      setError('Configuration error. Please check the console and contact the administrator.');
+      return;
+    }
+
     // Check if we have an access token in localStorage
     const storedToken = localStorage.getItem('accessToken');
     if (storedToken) {
@@ -38,6 +45,11 @@ export default function TestVacancyPage() {
   }, []);
 
   const handleAuthorize = () => {
+    if (!CLIENT_ID || !REDIRECT_URI) {
+      console.error('Client ID or Redirect URI is not set');
+      setError('Configuration error. Please check the console and contact the administrator.');
+      return;
+    }
     const authUrl = `https://hh.ru/oauth/authorize?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
     window.location.href = authUrl;
   };
@@ -70,7 +82,7 @@ export default function TestVacancyPage() {
           >
             Logout
           </button>
-          <VacancyContactTest accessToken={accessToken} />
+          <VacancyContactTest accessToken={accessToken} disabled={isDisabled} />
         </div>
       )}
 

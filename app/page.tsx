@@ -17,8 +17,33 @@ interface ApiAction {
 }
 
 interface ApiLimitInfo {
-  rawData: any;
   message: string;
+  actions: Array<{
+    id: string | number;
+    serviceType: {
+      id: string | number;
+      name: string;
+    };
+    activatedAt: string | number;
+    expiresAt: string | number;
+    balance: {
+      initial: number;
+      actual: number;
+    };
+  }>;
+  managerActions?: Array<{
+    id: string | number;
+    serviceType: {
+      id: string | number;
+      name: string;
+    };
+    activatedAt: string | number;
+    expiresAt: string | number;
+    balance: {
+      initial: number;
+      actual: number;
+    };
+  }>;
 }
 
 interface ApiActionInfo {
@@ -33,11 +58,6 @@ interface ApiActionInfo {
     actual: number;
     initial: number;
   };
-}
-
-interface ApiLimitInfo {
-  actions: ApiActionInfo[];
-  message: string;
 }
 
 interface UserInfo {
@@ -384,10 +404,10 @@ export default function Home() {
               <p>Used: {action.balance.initial - action.balance.actual}</p>
             </div>
           ))}
-          {apiLimit.managerActions ? (
+          {apiLimit.managerActions && apiLimit.managerActions.length > 0 && (
             <>
               <h4 className="font-semibold mt-4">Manager Actions:</h4>
-              {apiLimit.managerActions.map(action => (
+              {apiLimit.managerActions.map((action, index) => (
                 <div key={action.id} className="mt-2 border-t pt-2">
                   <h4 className="font-semibold">{action.serviceType.name}</h4>
                   <p>Service ID: {action.serviceType.id}</p>
@@ -399,8 +419,6 @@ export default function Home() {
                 </div>
               ))}
             </>
-          ) : (
-            <p className="mt-4 text-yellow-600">Manager-specific data is not available.</p>
           )}
         </div>
       )}
