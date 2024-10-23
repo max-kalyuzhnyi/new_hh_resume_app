@@ -143,7 +143,7 @@ async function processSheetData(
 
   const newData: { [key: string]: any }[] = [];
 
-  for (const [vacancyLink, vacancyData] of uniqueVacancies) {
+  for (const [vacancyLink, vacancyData] of Array.from(uniqueVacancies)) {
     log(`Processing vacancy link: ${vacancyLink}`);
     try {
       const vacancyInfos = await fetchVacancyContactInfo(vacancyLink, accessToken, log, vacancyLimit);
