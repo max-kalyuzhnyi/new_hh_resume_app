@@ -87,8 +87,10 @@ export default function Home() {
           // Other error
           console.error('Error fetching user data:', await response.text());
         }
-      } catch (error) {
-        console.error('Error checking auth status:', error);
+      } catch (error: unknown) {
+        console.error('Error checking auth status:', 
+          error instanceof Error ? error.message : 'Unknown error'
+        );
       } finally {
         setIsLoading(false);
       }
@@ -140,9 +142,14 @@ export default function Home() {
       const data = await response.json();
       setApiLimit(data);
       setMessage({ type: 'success', text: 'API limit checked successfully' });
-    } catch (error) {
-      console.error('Error checking API limit:', error);
-      setMessage({ type: 'error', text: `Failed to check API limit: ${error.message}` });
+    } catch (error: unknown) {
+      console.error('Error checking API limit:', 
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      setMessage({ 
+        type: 'error', 
+        text: `Failed to check API limit: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     } finally {
       setApiLimitLoading(false);  // Reset the new loading state
     }
@@ -178,8 +185,11 @@ export default function Home() {
 
       await response.json();
       setMessage({ type: 'success', text: 'Google Sheet updated successfully' });
-    } catch (error) {
-      setMessage({ type: 'error', text: error.message });
+    } catch (error: unknown) {
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'An unknown error occurred'
+      });
     } finally {
       setActionLoading(false);
     }
