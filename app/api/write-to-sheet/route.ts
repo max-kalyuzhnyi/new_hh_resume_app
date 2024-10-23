@@ -228,7 +228,18 @@ async function writeToGoogleSheet(sheetId: string, data: { rowIndex: number, ful
 }
 
 async function getGoogleAuth() {
-  const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  const credentialsString = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!credentialsString) {
+    throw new Error('GOOGLE_APPLICATION_CREDENTIALS environment variable is not set');
+  }
+
+  let credentials;
+  try {
+    credentials = JSON.parse(credentialsString);
+  } catch (error) {
+    throw new Error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS: ' + (error instanceof Error ? error.message : String(error)));
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
