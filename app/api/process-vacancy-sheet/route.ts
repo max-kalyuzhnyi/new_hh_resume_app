@@ -141,7 +141,7 @@ async function processSheetData(
 
   log(`Deduplicated vacancies: ${uniqueVacancies.size}`);
 
-  const newData = [];
+  const newData: { [key: string]: any }[] = [];
 
   for (const [vacancyLink, vacancyData] of uniqueVacancies) {
     log(`Processing vacancy link: ${vacancyLink}`);
