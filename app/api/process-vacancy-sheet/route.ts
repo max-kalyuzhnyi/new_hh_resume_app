@@ -331,8 +331,9 @@ async function ensureSheetExists(sheets: any, sheetId: string, sheetName: string
 }
 
 async function getGoogleAuth() {
+  const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
   const auth = new google.auth.GoogleAuth({
-    keyFile: path.join(process.cwd(), 'google-credentials.json'),
+    credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   return auth;
