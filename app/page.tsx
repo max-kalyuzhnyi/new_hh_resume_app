@@ -272,7 +272,7 @@ export default function Home() {
               </p>
               <h3 className="text-lg font-semibold mb-2">Input Requirements:</h3>
               <ul className="list-disc list-inside mb-4">
-                <li>Worksheet name: &aposResume&apos</li>
+                <li>Worksheet name: &apos;Resume&apos;</li>
                 <li>Required columns:
                   <ul className="list-disc list-inside ml-4">
                     <li>Company name</li>
@@ -335,7 +335,7 @@ export default function Home() {
               </p>
               <h3 className="text-lg font-semibold mb-2">Input Requirements:</h3>
               <ul className="list-disc list-inside mb-4">
-                <li>Worksheet name: &aposVacancy&apos</li>
+                <li>Worksheet name: &apos;Vacancy&apos;</li>
                 <li>Required columns:
                   <ul className="list-disc list-inside ml-4">
                     <li>Company name</li>
@@ -346,7 +346,7 @@ export default function Home() {
               </ul>
               <h3 className="text-lg font-semibold mb-2">Output:</h3>
               <p className="mb-4">
-                The tool will create a new worksheet named &aposVacancies_output&apos with the following columns:
+                The tool will create a new worksheet named &apos;Vacancies_output&apos; with the following columns:
               </p>
               <ul className="list-disc list-inside mb-4">
                 <li>Company name</li>
