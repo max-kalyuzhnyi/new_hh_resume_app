@@ -238,15 +238,21 @@ async function fetchSingleVacancyInfo(vacancyLink: string, accessToken: string, 
       }
     });
 
+    const responseText = await vacancyResponse.text();
+
     if (!vacancyResponse.ok) {
-      const errorBody = await vacancyResponse.text();
-      log(`API request failed. Status: ${vacancyResponse.status}, Body: ${errorBody}`);
-      throw new Error(`HTTP error! status: ${vacancyResponse.status}, body: ${errorBody}`);
+      log(`API request failed. Status: ${vacancyResponse.status}, Body: ${responseText}`);
+      throw new Error(`HTTP error! status: ${vacancyResponse.status}, body: ${responseText}`);
     }
 
-    const vacancyData = await vacancyResponse.json();
-    log(`Successfully fetched vacancy data for ID: ${vacancyId}`);
-    return vacancyData;
+    try {
+      const vacancyData = JSON.parse(responseText);
+      log(`Successfully fetched vacancy data for ID: ${vacancyId}`);
+      return vacancyData;
+    } catch (parseError) {
+      log(`Error parsing JSON response: ${responseText}`);
+      throw new Error(`Failed to parse API response as JSON: ${parseError}`);
+    }
   } catch (error: unknown) {
     log(`Error fetching vacancy data: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
