@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
+import got from 'got'; // You'll need to install this package
 
 // Remove hardcoded values
 const CLIENT_ID = process.env.HH_CLIENT_ID || '';
@@ -11,28 +12,29 @@ async function getAccessToken(code: string) {
     throw new Error('Missing required environment variables');
   }
 
-  const response = await fetch('https://hh.ru/oauth/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'YourAppName/1.0 (your@email.com)',
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      code: code,
-      redirect_uri: REDIRECT_URI,
-    }),
-  });
+  try {
+    const response = await got.post('https://hh.ru/oauth/token', {
+      form: {
+        grant_type: 'authorization_code',
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        code: code,
+        redirect_uri: REDIRECT_URI,
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      },
+      followRedirect: true,
+      https: {
+        rejectUnauthorized: false,
+      },
+    });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('Error response:', errorBody);
-    throw new Error(`Failed to get access token: ${response.statusText}. Error: ${errorBody}`);
+    return JSON.parse(response.body);
+  } catch (error) {
+    console.error('Error response:', error.response?.body);
+    throw new Error(`Failed to get access token: ${error.message}`);
   }
-
-  return await response.json();
 }
 
 export async function GET(request: NextRequest) {
