@@ -135,7 +135,13 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
     });
 
     if (!response.ok) {
-      console.error(`Error fetching resume ${resumeId}: HTTP status ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`Error fetching resume ${resumeId}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers),
+        body: errorBody
+      });
       return null;
     }
 
@@ -151,7 +157,7 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
     if (resumeData.actions && resumeData.actions.get_with_contact) {
       const getWithContactUrl = resumeData.actions.get_with_contact.url;
 
-      await delay(1000);
+      await delay(2000);
 
       const contactResponse = await fetch(getWithContactUrl, {
         headers: {
@@ -194,7 +200,12 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
 
     return resumeInfo;
   } catch (error: unknown) {
-    console.error(`Error processing resume ${resumeId}:`, error instanceof Error ? error.message : String(error));
+    console.error(`Error processing resume ${resumeId}:`, {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      resumeLink,
+      timestamp: new Date().toISOString()
+    });
     return null;
   }
 }
