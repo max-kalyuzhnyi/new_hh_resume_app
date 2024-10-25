@@ -35,7 +35,9 @@ async function getAccessToken(code: string, retryCount = 0): Promise<any> {
       https: {
         rejectUnauthorized: false,
       },
-      timeout: 5000, // 5 second timeout for the request
+      timeout: {
+        request: 5000, // 5 second timeout for the entire request
+      },
     });
 
     return JSON.parse(response.body);
