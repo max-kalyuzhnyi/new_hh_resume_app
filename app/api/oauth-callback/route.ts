@@ -20,7 +20,7 @@ async function getAccessToken(code: string, retryCount = 0): Promise<any> {
   }
 
   try {
-    const response = await got.post('https://hh.ru/oauth/token', {
+    const response = await got.post('https://api.hh.ru/token', {
       form: {
         grant_type: 'authorization_code',
         client_id: CLIENT_ID,
@@ -29,6 +29,7 @@ async function getAccessToken(code: string, retryCount = 0): Promise<any> {
         redirect_uri: REDIRECT_URI,
       },
       headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
       },
       followRedirect: true,
@@ -36,7 +37,7 @@ async function getAccessToken(code: string, retryCount = 0): Promise<any> {
         rejectUnauthorized: false,
       },
       timeout: {
-        request: 5000, // 5 second timeout for the entire request
+        request: 5000,
       },
     });
 
