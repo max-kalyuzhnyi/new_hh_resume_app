@@ -96,7 +96,8 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Error getting access token:', error instanceof Error ? error.message : String(error));
-    // Redirect back to the main page with an error parameter
-    return NextResponse.redirect(new URL(`/?error=${encodeURIComponent('Failed to get access token')}`, request.url));
+    const processingUrl = new URL('/auth/processing', request.url);
+    processingUrl.searchParams.set('code', code);
+    return NextResponse.redirect(processingUrl);
   }
 }
