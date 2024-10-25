@@ -7,8 +7,8 @@ const CLIENT_ID = process.env.HH_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.HH_CLIENT_SECRET || '';
 const REDIRECT_URI = process.env.HH_REDIRECT_URI || '';
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 5000; // 5 seconds
+const MAX_RETRIES = 1; // Reduced from 3
+const RETRY_DELAY = 2000; // Reduced from 5000 (2 seconds)
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -35,6 +35,7 @@ async function getAccessToken(code: string, retryCount = 0): Promise<any> {
       https: {
         rejectUnauthorized: false,
       },
+      timeout: 5000, // 5 second timeout for the request
     });
 
     return JSON.parse(response.body);
@@ -93,6 +94,9 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Error getting access token:', error instanceof Error ? error.message : String(error));
-    return NextResponse.redirect(new URL(`/?error=token_error&message=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`, request.url));
+    // Instead of redirecting with an error, store the code and redirect to a "processing" page
+    const processingUrl = new URL('/auth/processing', request.url);
+    processingUrl.searchParams.set('code', code);
+    return NextResponse.redirect(processingUrl);
   }
 }
