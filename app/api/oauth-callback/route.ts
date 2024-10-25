@@ -7,7 +7,14 @@ const CLIENT_ID = process.env.HH_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.HH_CLIENT_SECRET || '';
 const REDIRECT_URI = process.env.HH_REDIRECT_URI || '';
 
-async function getAccessToken(code: string) {
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 5000; // 5 seconds
+
+async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function getAccessToken(code: string, retryCount = 0): Promise<any> {
   if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
     throw new Error('Missing required environment variables');
   }
@@ -32,32 +39,42 @@ async function getAccessToken(code: string) {
 
     return JSON.parse(response.body);
   } catch (error) {
-    console.error('Error response:', error.response?.body);
-    throw new Error(`Failed to get access token: ${error.message}`);
+    if (error instanceof Error) {
+      if ('response' in error) {
+        const httpError = error as { response: { statusCode: number, body: string } };
+        console.error('HTTP Error:', httpError.response.statusCode, httpError.response.body);
+        
+        if (httpError.response.statusCode === 403 && retryCount < MAX_RETRIES) {
+          console.log(`Retrying in ${RETRY_DELAY / 1000} seconds... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+          await sleep(RETRY_DELAY);
+          return getAccessToken(code, retryCount + 1);
+        }
+        
+        throw new Error(`HTTP error ${httpError.response.statusCode}: ${httpError.response.body}`);
+      } else {
+        console.error('Error:', error.message);
+        throw new Error(`Failed to get access token: ${error.message}`);
+      }
+    } else {
+      console.error('Unknown error:', error);
+      throw new Error('An unknown error occurred while getting the access token');
+    }
   }
 }
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
-  const state = searchParams.get('state');
 
   if (!code) {
     console.error('No code provided in OAuth callback');
     return NextResponse.redirect(new URL('/?error=no_code', request.url));
   }
 
-  // Verify that the state matches what you sent in the initial request
-  // if (state !== expectedState) {
-  //   console.error('State mismatch in OAuth callback');
-  //   return NextResponse.redirect(new URL('/?error=state_mismatch', request.url));
-  // }
-
   try {
     const tokenData = await getAccessToken(code);
     console.log('Received token data:', tokenData);
     
-    // Store tokens in HTTP-only cookies
     const response = NextResponse.redirect(new URL('/', request.url));
     response.cookies.set('hh_access_token', tokenData.access_token, {
       httpOnly: true,
@@ -75,7 +92,7 @@ export async function GET(request: NextRequest) {
     console.log(`Access token will expire in ${tokenData.expires_in} seconds`);
     return response;
   } catch (error) {
-    console.error('Error getting access token:', error);
-    return NextResponse.redirect(new URL('/?error=token_error', request.url));
+    console.error('Error getting access token:', error instanceof Error ? error.message : String(error));
+    return NextResponse.redirect(new URL(`/?error=token_error&message=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`, request.url));
   }
 }
