@@ -15,6 +15,7 @@ async function getAccessToken(code: string) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'YourAppName/1.0 (your@email.com)',
     },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
@@ -26,7 +27,9 @@ async function getAccessToken(code: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get access token: ${response.statusText}`);
+    const errorBody = await response.text();
+    console.error('Error response:', errorBody);
+    throw new Error(`Failed to get access token: ${response.statusText}. Error: ${errorBody}`);
   }
 
   return await response.json();
@@ -35,11 +38,18 @@ async function getAccessToken(code: string) {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
+  const state = searchParams.get('state');
 
   if (!code) {
     console.error('No code provided in OAuth callback');
     return NextResponse.redirect(new URL('/?error=no_code', request.url));
   }
+
+  // Verify that the state matches what you sent in the initial request
+  // if (state !== expectedState) {
+  //   console.error('State mismatch in OAuth callback');
+  //   return NextResponse.redirect(new URL('/?error=state_mismatch', request.url));
+  // }
 
   try {
     const tokenData = await getAccessToken(code);
@@ -60,6 +70,7 @@ export async function GET(request: NextRequest) {
     });
     
     console.log('Redirecting to:', response.url);
+    console.log(`Access token will expire in ${tokenData.expires_in} seconds`);
     return response;
   } catch (error) {
     console.error('Error getting access token:', error);
