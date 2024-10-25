@@ -440,3 +440,4 @@ function extractVacancyLinks($: cheerio.CheerioAPI, log: (message: string) => vo
   
   return vacancyLinks;
 }
+

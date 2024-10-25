@@ -42,23 +42,22 @@ async function getAccessToken(code: string, retryCount = 0): Promise<any> {
     });
 
     return JSON.parse(response.body);
-  } catch (error) {
-    if (error instanceof Error) {
-      if ('response' in error) {
-        const httpError = error as { response: { statusCode: number, body: string } };
-        console.error('HTTP Error:', httpError.response.statusCode, httpError.response.body);
-        
-        if (httpError.response.statusCode === 403 && retryCount < MAX_RETRIES) {
-          console.log(`Retrying in ${RETRY_DELAY / 1000} seconds... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
-          await sleep(RETRY_DELAY);
-          return getAccessToken(code, retryCount + 1);
-        }
-        
-        throw new Error(`HTTP error ${httpError.response.statusCode}: ${httpError.response.body}`);
-      } else {
-        console.error('Error:', error.message);
-        throw new Error(`Failed to get access token: ${error.message}`);
+  } catch (error: any) {
+    console.error('Error in getAccessToken:', error);
+
+    if (error.response) {
+      console.error('HTTP Error:', error.response.statusCode, error.response.body);
+      
+      if (error.response.statusCode === 403 && retryCount < MAX_RETRIES) {
+        console.log(`Retrying in ${RETRY_DELAY / 1000} seconds... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        await sleep(RETRY_DELAY);
+        return getAccessToken(code, retryCount + 1);
       }
+      
+      throw new Error(`HTTP error ${error.response.statusCode}: ${error.response.body}`);
+    } else if (error.request) {
+      console.error('Request Error:', error.message);
+      throw new Error(`Request failed: ${error.message}`);
     } else {
       console.error('Unknown error:', error);
       throw new Error('An unknown error occurred while getting the access token');
