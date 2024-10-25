@@ -124,6 +124,9 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
   const resumeId = resumeLink.split('/').pop();
   const url = `${HH_API_BASE_URL}/resumes/${resumeId}`;
 
+  console.log(`Attempting to fetch resume with ID: ${resumeId}`);
+  console.log(`Full URL: ${url}`);
+
   await delay(1000);
 
   try {
@@ -134,6 +137,9 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
       }
     });
 
+    console.log(`Response status: ${response.status}`);
+    console.log(`Response headers:`, Object.fromEntries(response.headers));
+
     if (!response.ok) {
       const errorBody = await response.text();
       console.error(`Error fetching resume ${resumeId}:`, {
@@ -142,6 +148,15 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
         headers: Object.fromEntries(response.headers),
         body: errorBody
       });
+      
+      // Try to parse the error body as JSON
+      try {
+        const errorJson = JSON.parse(errorBody);
+        console.error('Parsed error body:', errorJson);
+      } catch (e) {
+        console.error('Error body is not valid JSON');
+      }
+
       return null;
     }
 
