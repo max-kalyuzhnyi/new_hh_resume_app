@@ -133,7 +133,8 @@ async function fetchResumeInfo(resumeLink: string, accessToken: string): Promise
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'User-Agent': 'YourAppName/1.0 (your@email.com)'
       }
     });
 
