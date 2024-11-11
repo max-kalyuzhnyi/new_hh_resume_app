@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import VacancyContactTest from './components/VacancyContactTest';  // Add this import
+import ResumeSearch from './components/ResumeSearch';
 
 // Use the same names as in the oauth-callback route, but with NEXT_PUBLIC_ prefix
 const CLIENT_ID = process.env.NEXT_PUBLIC_HH_CLIENT_ID;
@@ -78,7 +79,7 @@ export default function Home() {
   const [sheetUrl, setSheetUrl] = useState('');
   const [apiLimit, setApiLimit] = useState<ApiLimitInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('resume'); // 'resume' or 'vacancy'
+  const [activeTab, setActiveTab] = useState<'resume' | 'vacancy' | 'screening'>('resume'); // 'resume' or 'vacancy' or 'screening'
   const [accountType, setAccountType] = useState<'employer' | 'job_seeker' | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -219,7 +220,7 @@ export default function Home() {
   const isVacancyDisabled = activeTab === 'vacancy' && accountType === 'employer';
 
   // Add this function to handle tab changes
-  const handleTabChange = (tab: 'resume' | 'vacancy') => {
+  const handleTabChange = (tab: 'resume' | 'vacancy' | 'screening') => {
     setActiveTab(tab);
     setMessage(null); // Clear the message when changing tabs
   };
@@ -258,9 +259,15 @@ export default function Home() {
             </button>
             <button
               onClick={() => handleTabChange('vacancy')}
-              className={`px-4 py-2 rounded ${activeTab === 'vacancy' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              className={`px-4 py-2 mr-2 rounded ${activeTab === 'vacancy' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
             >
               Vacancy Fetcher
+            </button>
+            <button
+              onClick={() => handleTabChange('screening')}
+              className={`px-4 py-2 rounded ${activeTab === 'screening' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+            >
+              Resume Screening
             </button>
           </div>
 
@@ -369,6 +376,23 @@ export default function Home() {
                 accessToken={accessToken} 
                 disabled={isVacancyDisabled} 
               />
+            </div>
+          )}
+
+          {activeTab === 'screening' && (
+            <div>
+              <h2 className="text-xl font-bold mb-2">Resume Screening</h2>
+              <p className="mb-4">
+                This tool helps you search and screen resumes based on specific criteria.
+              </p>
+              
+              {accountType === 'job_seeker' && (
+                <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+                  <p>Warning: Resume screening requires an employer account. Please re-login with an employer account.</p>
+                </div>
+              )}
+
+              <ResumeSearch />
             </div>
           )}
         </div>

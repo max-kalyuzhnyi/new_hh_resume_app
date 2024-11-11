@@ -26,10 +26,29 @@ interface ManagerApiLimitInfo extends ApiLimitInfo {
   managerActions?: ApiActionInfo[]; // Make this optional
 }
 
+async function getEmployerId(accessToken: string): Promise<string> {
+  const response = await fetch(`${HH_API_BASE_URL}/me`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'User-Agent': 'ResumeProcessor/1.0 (your@email.com)'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get user info: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data.employer?.id) {
+    throw new Error('No employer ID found in user data');
+  }
+
+  return data.employer.id;
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const accessToken = searchParams.get('accessToken');
-  const employerId = '1480875'; // Hardcoded for this specific request
   const managerId = searchParams.get('managerId');
 
   if (!accessToken) {
@@ -41,6 +60,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const employerId = await getEmployerId(accessToken);
     const limitInfo = await checkApiLimit(accessToken, employerId, managerId);
     return NextResponse.json(limitInfo);
   } catch (error) {
@@ -76,6 +96,14 @@ async function checkApiLimit(accessToken: string, employerId: string, managerId:
   }
 
   const employerData = await employerResponse.json();
+
+  // Check if no active API packs
+  if (!employerData.items?.length) {
+    return {
+      actions: [],
+      message: 'No active API packs found for this employer.'
+    };
+  }
 
   let managerData = null;
   try {
