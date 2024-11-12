@@ -35,8 +35,9 @@ const MAX_RETRIES = 2;    // Reduced from 3 to 2
 const BATCH_SIZE = 10;    // Increased from 5 to 10
 const DELAY_BETWEEN_REQUESTS = 100; // Reduced from 1000ms to 100ms
 const MAX_DURATION_SEC = 60;
-const SAFETY_MARGIN_SEC = 5; // Stop 5 seconds before timeout
+const SAFETY_MARGIN_SEC = 10; // Increased from 5s to 10s
 const MAX_EXECUTION_MS = (MAX_DURATION_SEC - SAFETY_MARGIN_SEC) * 1000;
+const MAX_RESULTS_PER_COMPANY = 1000; // Add this new limit
 
 // Add new timeout fetch wrapper
 async function fetchWithTimeout(url: string, options: RequestInit, timeout = TIMEOUT_MS): Promise<Response> {
@@ -113,8 +114,8 @@ function isRecentOrCurrentExperience(exp: Experience): boolean {
 
 // Add helper function to clean company names
 function cleanCompanyName(company: string): string {
-  // List of common region/city indicators to remove
-  const regionIndicators = [
+  // List of words to remove
+  const removeWords = [
     'область',
     'край',
     'республика',
@@ -124,36 +125,50 @@ function cleanCompanyName(company: string): string {
     'санкт-петербург',
     'ленинградская',
     'новосибирск',
-    // Add more as needed
+    'район',
+    'город',
+    'пао',
+    'оао',
+    'ооо',
+    'зао',
+    'ао',
+    'группа',
+    'компаний',
+    'компания',
+    'корпорация',
+    'холдинг',
+    'филиал',
+    'представительство'
   ];
 
-  // Remove legal entity types and quotes
+  // Convert to lowercase and remove quotes
   let cleanName = company
-    .replace(/^(ООО|ОАО|ЗАО|АО)\s*["']?/i, '')
-    .replace(/["']/g, '')
-    .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/["'«»]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  // Remove region indicators and surrounding words
-  regionIndicators.forEach(indicator => {
-    // Match the indicator and any surrounding words
-    const regex = new RegExp(`\\s*\\b\\w+\\s+${indicator}\\b\\s*|\\s*\\b${indicator}\\s+\\w+\\b\\s*|\\s*\\b${indicator}\\b\\s*`, 'gi');
-    cleanName = cleanName.replace(regex, ' ');
+  // Remove all words from the list
+  removeWords.forEach(word => {
+    cleanName = cleanName.replace(new RegExp(`\\b${word}\\b`, 'g'), '');
   });
 
-  return cleanName.trim();
+  // Clean up extra spaces and trim
+  cleanName = cleanName
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return cleanName;
 }
 
 async function fetchResumes(searchText: string, limit: number, accessToken: string, companies: string[]): Promise<Resume[]> {
   const startTime = Date.now();
   let allItems: Resume[] = [];
-  const MAX_ITEMS = 2000;
-  const ITEMS_PER_PAGE = 100;
   
-  // Process each company separately
   for (const company of companies) {
+    // Add time check before each major operation
     if (Date.now() - startTime > MAX_EXECUTION_MS) {
-      console.log('Approaching timeout limit, stopping search');
+      console.log('Time limit approaching, stopping search');
       break;
     }
 
@@ -170,7 +185,7 @@ async function fetchResumes(searchText: string, limit: number, accessToken: stri
       continue;
     }
 
-    const fullQuery = `"${cleanName}" AND (${searchText})`;
+    const fullQuery = `"${cleanName}"~1`; // Use exact phrase with distance of 1
     
     const searchParams = new URLSearchParams({
       text: fullQuery,
@@ -190,8 +205,12 @@ async function fetchResumes(searchText: string, limit: number, accessToken: stri
     let companyItems: Resume[] = [];
 
     while (true) {
-      if (page * ITEMS_PER_PAGE >= MAX_ITEMS) {
-        console.log(`Reached API limit for company ${cleanName}`);
+      // Add time check inside the pagination loop
+      if (Date.now() - startTime > MAX_EXECUTION_MS || 
+          companyItems.length >= MAX_RESULTS_PER_COMPANY) {
+        console.log(`Stopping search for ${cleanName} - ${
+          Date.now() - startTime > MAX_EXECUTION_MS ? 'time limit' : 'result limit'
+        } reached`);
         break;
       }
 
