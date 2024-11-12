@@ -31,7 +31,7 @@ function formatDate(dateString: string | null): string {
 }
 
 const TIMEOUT_MS = 15000; // Reduced from 30s to 15s
-const MAX_RETRIES = 2;    // Reduced from 3 to 2
+const MAX_RETRIES = 0;    // Reduced from 3 to 0
 const BATCH_SIZE = 10;    // Increased from 5 to 10
 const DELAY_BETWEEN_REQUESTS = 100; // Reduced from 1000ms to 100ms
 const MAX_DURATION_SEC = 60;
