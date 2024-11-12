@@ -39,6 +39,7 @@ const SAFETY_MARGIN_SEC = 10; // Increased from 5s to 10s
 const MAX_EXECUTION_MS = (MAX_DURATION_SEC - SAFETY_MARGIN_SEC) * 1000;
 const MAX_RESULTS_PER_COMPANY = 1000; // Add this new limit
 const ITEMS_PER_PAGE = 100;
+const processedCleanNames = new Set<string>();
 
 // Add new timeout fetch wrapper
 async function fetchWithTimeout(url: string, options: RequestInit, timeout = TIMEOUT_MS): Promise<Response> {
@@ -115,7 +116,6 @@ function isRecentOrCurrentExperience(exp: Experience): boolean {
 
 // Add helper function to clean company names
 function cleanCompanyName(company: string): string {
-  // List of words to remove
   const removeWords = [
     'область',
     'край',
@@ -139,26 +139,35 @@ function cleanCompanyName(company: string): string {
     'корпорация',
     'холдинг',
     'филиал',
-    'представительство'
-  ];
+    'представительство',
+    'общество с ограниченной ответственностью',
+    'акционерное общество'
+  ].map(word => word.toLowerCase());
 
-  // Convert to lowercase and remove quotes
+  // 1. First remove quotes and convert to lowercase
   let cleanName = company
-    .toLowerCase()
-    .replace(/["'«»]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/["'«»]/g, '')  // Remove all types of quotes first
+    .toLowerCase();
+  
+  // 2. Remove all legal entity words
+  for (const word of removeWords) {
+    // More aggressive word removal
+    cleanName = cleanName
+      .replace(new RegExp(`^${word}\\s+`, 'g'), '')  // At start
+      .replace(new RegExp(`\\s+${word}\\s+`, 'g'), ' ')  // In middle
+      .replace(new RegExp(`\\s+${word}$`, 'g'), '');  // At end
+  }
 
-  // Remove all words from the list
-  removeWords.forEach(word => {
-    cleanName = cleanName.replace(new RegExp(`\\b${word}\\b`, 'g'), '');
-  });
-
-  // Clean up extra spaces and trim
+  // 3. Clean up formatting
   cleanName = cleanName
-    .replace(/\s+/g, ' ')
+    .replace(/[.,]/g, '')       // Remove dots and commas
+    .replace(/\(\s*\)/g, '')    // Remove empty parentheses
+    .replace(/\s+/g, ' ')       // Normalize spaces
+    .replace(/^\s*-\s*/, '')    // Remove leading hyphen
+    .replace(/\s*-\s*$/, '')    // Remove trailing hyphen
     .trim();
 
+  // console.log(`Original: "${company}" -> Cleaned: "${cleanName}"`);
   return cleanName;
 }
 
@@ -167,7 +176,6 @@ async function fetchResumes(searchText: string, limit: number, accessToken: stri
   let allItems: Resume[] = [];
   
   for (const company of companies) {
-    // Add time check before each major operation
     if (Date.now() - startTime > MAX_EXECUTION_MS) {
       console.log('Time limit approaching, stopping search');
       break;
@@ -178,15 +186,23 @@ async function fetchResumes(searchText: string, limit: number, accessToken: stri
       break;
     }
 
-    // Use the new cleaning function
     const cleanName = cleanCompanyName(company);
-    
+    console.log(`Original: "${company}" -> Cleaned: "${cleanName}"`);
+
+    // Skip empty or already processed clean names
     if (!cleanName) {
       console.log(`Skipping empty company name after cleaning: ${company}`);
       continue;
     }
+    
+    if (processedCleanNames.has(cleanName)) {
+      console.log(`Skipping duplicate clean name "${cleanName}" for company "${company}"`);
+      continue;
+    }
 
-    const fullQuery = `"${cleanName}"~1`; // Use exact phrase with distance of 1
+    processedCleanNames.add(cleanName);
+    
+    const fullQuery = `"${cleanName}" AND (${searchText})`;
     
     const searchParams = new URLSearchParams({
       text: fullQuery,
@@ -412,7 +428,7 @@ async function writeResumesToSheet(sheetId: string, items: any[]): Promise<void>
   const headers = [
     'Искомая должность',
     'Последнее место работы - Компания',
-    'Последнее место работы - Должность',
+    'Последнее место аботы - Должность',
     'Последнее место работы - Описание',
     'Последнее место работы - Период',
     'Статус поиска работы',
