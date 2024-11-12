@@ -490,3 +490,5 @@ export const GET = async (request: NextRequest) => {
 };
 
 export const dynamic = 'force-dynamic';
+
+export const maxDuration = 60; // Set to 60 seconds
