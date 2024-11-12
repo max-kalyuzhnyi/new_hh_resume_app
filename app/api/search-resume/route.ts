@@ -38,6 +38,7 @@ const MAX_DURATION_SEC = 60;
 const SAFETY_MARGIN_SEC = 10; // Increased from 5s to 10s
 const MAX_EXECUTION_MS = (MAX_DURATION_SEC - SAFETY_MARGIN_SEC) * 1000;
 const MAX_RESULTS_PER_COMPANY = 1000; // Add this new limit
+const ITEMS_PER_PAGE = 100;
 
 // Add new timeout fetch wrapper
 async function fetchWithTimeout(url: string, options: RequestInit, timeout = TIMEOUT_MS): Promise<Response> {
