@@ -21,8 +21,6 @@ interface Resume {
   total_experience?: { months: number };
   last_visit?: string;
   updated_at?: string;
-  status?: string;
-  lastJobDescription?: string;
 }
 
 function formatDate(dateString: string | null): string {
@@ -30,72 +28,26 @@ function formatDate(dateString: string | null): string {
   return new Date(dateString).toLocaleDateString('ru-RU');
 }
 
-const TIMEOUT_MS = 30000; // 30 seconds
-const MAX_RETRIES = 3;
-const BATCH_SIZE = 5; // Reduce batch size
-const DELAY_BETWEEN_REQUESTS = 1000; // 1 second delay between requests
-
-// Add new timeout fetch wrapper
-async function fetchWithTimeout(url: string, options: RequestInit, timeout = TIMEOUT_MS): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-}
-
-// Helper function for delays
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Update fetchResumeDetails with longer delays between retries
-async function fetchResumeDetails(resumeId: string, accessToken: string, retries = MAX_RETRIES): Promise<any> {
-  try {
-    const url = `https://api.hh.ru/resumes/${resumeId}?with_job_search_status=true`;
-    const response = await fetchWithTimeout(url, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'User-Agent': 'api-test-agent',
-        'HH-User-Agent': 'api-test-agent'
-      }
-    });
-
-    if (response.status === 429) {
-      if (retries > 0) {
-        const waitTime = (MAX_RETRIES - retries + 1) * 2000; // Exponential backoff
-        console.log(`Rate limited, waiting ${waitTime}ms before retry`);
-        await delay(waitTime);
-        return fetchResumeDetails(resumeId, accessToken, retries - 1);
-      }
+async function fetchResumeDetails(resumeId: string, accessToken: string): Promise<any> {
+  const url = `https://api.hh.ru/resumes/${resumeId}?with_job_search_status=true`;
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'User-Agent': 'api-test-agent',
+      'HH-User-Agent': 'api-test-agent'
     }
+  });
 
-    if (!response.ok) {
-      throw new Error(`Failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    return {
-      status: data.job_search_status?.name || 'N/A',
-      lastJobDescription: data.experience?.[0]?.description || 'N/A'
-    };
-  } catch (error) {
-    if (retries > 0) {
-      const waitTime = (MAX_RETRIES - retries + 1) * 2000;
-      console.log(`Error fetching resume ${resumeId}, waiting ${waitTime}ms before retry`);
-      await delay(waitTime);
-      return fetchResumeDetails(resumeId, accessToken, retries - 1);
-    }
-    console.error(`Failed to fetch details for resume ${resumeId}:`, error);
+  if (!response.ok) {
+    console.error(`Failed to fetch details for resume ${resumeId}`);
     return null;
   }
+
+  const data = await response.json();
+  return {
+    status: data.job_search_status?.name || 'N/A',
+    lastJobDescription: data.experience?.[0]?.description || 'N/A'
+  };
 }
 
 // Move helper function outside
@@ -108,164 +60,96 @@ function isRecentOrCurrentExperience(exp: Experience): boolean {
   return endDate >= oneYearAgo;
 }
 
-// Add helper function to clean company names
-function cleanCompanyName(company: string): string {
-  // List of common region/city indicators to remove
-  const regionIndicators = [
-    'область',
-    'край',
-    'республика',
-    'округ',
-    'москва',
-    'московская',
-    'санкт-петербург',
-    'ленинградская',
-    'новосибирск',
-    // Add more as needed
-  ];
-
-  // Remove legal entity types and quotes
-  let cleanName = company
-    .replace(/^(ООО|ОАО|ЗАО|АО)\s*["']?/i, '')
-    .replace(/["']/g, '')
-    .trim()
-    .toLowerCase();
-
-  // Remove region indicators and surrounding words
-  regionIndicators.forEach(indicator => {
-    // Match the indicator and any surrounding words
-    const regex = new RegExp(`\\s*\\b\\w+\\s+${indicator}\\b\\s*|\\s*\\b${indicator}\\s+\\w+\\b\\s*|\\s*\\b${indicator}\\b\\s*`, 'gi');
-    cleanName = cleanName.replace(regex, ' ');
-  });
-
-  return cleanName.trim();
-}
-
 async function fetchResumes(searchText: string, limit: number, accessToken: string, companies: string[]): Promise<Resume[]> {
   let allItems: Resume[] = [];
   const MAX_ITEMS = 2000;
   const ITEMS_PER_PAGE = 100;
   
-  // Process each company separately
-  for (const company of companies) {
-    if (allItems.length >= limit) {
-      console.log('Reached requested limit, stopping search');
+  // Fix company query formatting
+  const companyQuery = companies.map(company => {
+    // Remove any existing quotes and ООО/ОАО/etc prefixes
+    const cleanName = company
+      .replace(/^(ООО|ОАО|ЗАО|АО)\s*["']?/i, '')  // Remove legal entity prefix
+      .replace(/["']/g, '')                        // Remove any quotes
+      .trim();
+    
+    return `"${cleanName}"`; // Add single set of quotes
+  }).join(' OR ');
+  
+  const fullQuery = `(${companyQuery}) AND (${searchText})`;
+  
+  const searchParams = new URLSearchParams({
+    text: fullQuery,
+    search_field: 'company_name,position,skill_set',
+    period: '365',
+    area: '113',
+    relocation: 'living_or_relocation',
+    order_by: 'relevance',
+    per_page: ITEMS_PER_PAGE.toString(),
+    clusters: 'true',
+    no_magic: 'true',
+    fields: 'last_name,first_name,middle_name,age,area,salary,title,experience,total_experience,last_visit,updated_at'
+  });
+
+  let page = 0;
+  while (allItems.length < MAX_ITEMS) {
+    searchParams.set('page', page.toString());
+    const pageUrl = `https://api.hh.ru/resumes?${searchParams.toString()}`;
+    console.log(`Fetching page ${page}. Query: ${fullQuery}`);
+    
+    const response = await fetch(pageUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'api-test-agent',
+        'HH-User-Agent': 'api-test-agent'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.items || data.items.length === 0) {
+      console.log('No more matches found');
       break;
     }
 
-    // Use the new cleaning function
-    const cleanName = cleanCompanyName(company);
-    
-    if (!cleanName) {
-      console.log(`Skipping empty company name after cleaning: ${company}`);
-      continue;
+    // Log the first resume as an example
+    if (page === 0 && data.items?.[0]) {
+      console.log('Example resume structure:', JSON.stringify(data.items[0], null, 2));
     }
 
-    const fullQuery = `"${cleanName}" AND (${searchText})`;
-    
-    const searchParams = new URLSearchParams({
-      text: fullQuery,
-      search_field: 'company_name,position,skill_set',
-      period: '365',
-      area: '113',
-      relocation: 'living_or_relocation',
-      order_by: 'relevance',
-      per_page: ITEMS_PER_PAGE.toString(),
-      clusters: 'true',
-      no_magic: 'true',
-      fields: 'last_name,first_name,middle_name,age,area,salary,title,experience,total_experience,last_visit,updated_at'
-    });
+    // Update the company matching filter with proper types
+    const newItems = data.items.filter((item: Resume) => 
+      item.experience?.some((exp: Experience) => 
+        companies.some(company => {
+          const isCompanyMatch = exp.company?.toLowerCase().trim() === company.toLowerCase().trim();
+          return isCompanyMatch && isRecentOrCurrentExperience(exp);
+        })
+      )
+    );
 
-    console.log(`Searching for company: ${cleanName}`);
-    let page = 0;
-    let companyItems: Resume[] = [];
+    allItems = allItems.concat(newItems);
+    console.log(`Found ${newItems.length} exact matches on page ${page}. Total: ${allItems.length}/${data.found}`);
 
-    while (true) {
-      if (page * ITEMS_PER_PAGE >= MAX_ITEMS) {
-        console.log(`Reached API limit for company ${cleanName}`);
-        break;
-      }
-
-      searchParams.set('page', page.toString());
-      const pageUrl = `https://api.hh.ru/resumes?${searchParams.toString()}`;
-      
-      try {
-        const response = await fetchWithTimeout(pageUrl, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'User-Agent': 'api-test-agent',
-            'HH-User-Agent': 'api-test-agent'
-          }
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.items || data.items.length === 0) {
-          console.log(`No more matches found for ${cleanName}`);
-          break;
-        }
-
-        // Filter for exact company match and recent experience
-        const newItems = data.items.filter((item: Resume) => 
-          item.experience?.some((exp: Experience) => {
-            const expCompanyClean = cleanCompanyName(exp.company || '');
-            const isCompanyMatch = expCompanyClean === cleanName;
-            return isCompanyMatch && isRecentOrCurrentExperience(exp);
-          })
-        );
-
-        companyItems = companyItems.concat(newItems);
-        console.log(`Found ${newItems.length} exact matches on page ${page} for ${cleanName}. Total for company: ${companyItems.length}/${data.found}`);
-
-        if (page * ITEMS_PER_PAGE >= data.found) break;
-        page++;
-      } catch (error) {
-        console.error(`Error fetching page ${page} for company ${cleanName}:`, error);
-        break;
-      }
-    }
-
-    // Add company results to total
-    allItems = allItems.concat(companyItems);
-    console.log(`Total resumes found across all companies so far: ${allItems.length}`);
+    if (page * ITEMS_PER_PAGE >= data.found) break;
+    page++;
   }
-  
-  // Limit total results
-  allItems = allItems.slice(0, limit);
   
   console.log('Fetching detailed info for matching resumes...');
-  const enrichedItems: Resume[] = [];
-  
-  // Process in smaller batches, sequentially
-  for (let i = 0; i < allItems.length; i += BATCH_SIZE) {
-    const batch = allItems.slice(i, i + BATCH_SIZE);
-    console.log(`Processing batch ${i/BATCH_SIZE + 1}, items ${i}-${i + batch.length}`);
-    
-    // Process each resume in batch sequentially
-    for (const item of batch) {
+  const enrichedItems = await Promise.all(
+    allItems.slice(0, limit).map(async (item) => {
       const details = await fetchResumeDetails(item.id, accessToken);
-      if (details) {
-        enrichedItems.push({
-          ...item,
-          status: details.status,
-          lastJobDescription: details.lastJobDescription
-        });
-      } else {
-        enrichedItems.push(item);
-      }
-      await delay(DELAY_BETWEEN_REQUESTS); // Wait between requests
-    }
-    
-    // Add delay between batches
-    if (i + BATCH_SIZE < allItems.length) {
-      await delay(DELAY_BETWEEN_REQUESTS * 2);
-    }
-  }
+      return {
+        ...item,
+        status: details?.status,
+        lastJobDescription: details?.lastJobDescription
+      };
+    })
+  );
 
   return enrichedItems;
 }
