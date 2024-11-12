@@ -142,18 +142,12 @@ function cleanCompanyName(company: string): string {
 }
 
 async function fetchResumes(searchText: string, limit: number, accessToken: string, companies: string[]): Promise<Resume[]> {
-  const startTime = Date.now();
   let allItems: Resume[] = [];
   const MAX_ITEMS = 2000;
   const ITEMS_PER_PAGE = 100;
   
   // Process each company separately
   for (const company of companies) {
-    if (Date.now() - startTime > MAX_EXECUTION_MS) {
-      console.log('Approaching timeout limit, stopping search');
-      break;
-    }
-
     if (allItems.length >= limit) {
       console.log('Reached requested limit, stopping search');
       break;
@@ -249,11 +243,6 @@ async function fetchResumes(searchText: string, limit: number, accessToken: stri
   
   // Process in smaller batches, sequentially
   for (let i = 0; i < allItems.length; i += BATCH_SIZE) {
-    if (Date.now() - startTime > MAX_EXECUTION_MS) {
-      console.log('Approaching timeout limit, stopping enrichment');
-      break;
-    }
-
     const batch = allItems.slice(i, i + BATCH_SIZE);
     console.log(`Processing batch ${i/BATCH_SIZE + 1}, items ${i}-${i + batch.length}`);
     
@@ -454,8 +443,6 @@ async function writeResumesToSheet(sheetId: string, items: any[]): Promise<void>
 
 // Modify the GET handler to write to sheet
 export const GET = async (request: NextRequest) => {
-  const startTime = Date.now();
-  
   try {
     const searchParams = request.nextUrl.searchParams;
     const text = searchParams.get('text') || '';
@@ -482,15 +469,9 @@ export const GET = async (request: NextRequest) => {
     const limitedItems = allItems.slice(0, isPreview ? 10 : totalLimit);
 
     if (!isPreview) {
-      if (Date.now() - startTime > MAX_EXECUTION_MS) {
-        return NextResponse.json({ 
-          success: false,
-          message: 'Operation timed out, partial results obtained',
-          count: allItems.length 
-        });
-      }
-      
+      // Write results to sheet
       await writeResumesToSheet(sheetId, limitedItems);
+      // Return success message instead of CSV
       return NextResponse.json({ 
         success: true, 
         message: 'Data successfully written to sheet',
