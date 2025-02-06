@@ -135,11 +135,11 @@ async function processSheetData(
     if (!row.length) continue;
     
     // For data rows, we know the actual structure is [companyName, inn, link]
-    const vacancyLink = row[2]; // Link is always at index 2 in data rows
+    const vacancyLink = row[4]; // Link is always at index 2 in data rows
     if (vacancyLink) {
       vacancies.push({
         companyName: row[0], // Company name at index 0
-        inn: row[1],        // INN at index 1
+        inn: row[2],        // INN at index 1
         link: vacancyLink   // Link at index 2
       });
     }
