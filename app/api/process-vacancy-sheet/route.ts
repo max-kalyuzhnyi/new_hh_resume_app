@@ -116,6 +116,8 @@ async function processSheetData(
   vacancyLimit: number
 ): Promise<{ originalData: string[][], newData: { [key: string]: any }[] }> {
   const headers = sheetData[0];
+  // Remove empty columns from headers
+  const cleanHeaders = headers.filter(h => h !== "");
   const columnIndexes = {
     companyName: headers.indexOf('Company name'),
     inn: headers.indexOf('INN'),
@@ -125,28 +127,32 @@ async function processSheetData(
   log('Column Indexes:');
   log(JSON.stringify(columnIndexes, null, 2));
 
-  // Deduplicate vacancies based on the link
-  const uniqueVacancies = new Map();
+  // Process all rows
+  const vacancies = [];
   for (let rowIndex = 1; rowIndex < sheetData.length; rowIndex++) {
     const row = sheetData[rowIndex];
-    const vacancyLink = row[columnIndexes.link];
-    if (vacancyLink && !uniqueVacancies.has(vacancyLink)) {
-      uniqueVacancies.set(vacancyLink, {
-        companyName: row[columnIndexes.companyName],
-        inn: row[columnIndexes.inn],
-        link: vacancyLink
+    // Skip empty rows
+    if (!row.length) continue;
+    
+    // For data rows, we know the actual structure is [companyName, inn, link]
+    const vacancyLink = row[2]; // Link is always at index 2 in data rows
+    if (vacancyLink) {
+      vacancies.push({
+        companyName: row[0], // Company name at index 0
+        inn: row[1],        // INN at index 1
+        link: vacancyLink   // Link at index 2
       });
     }
   }
 
-  log(`Deduplicated vacancies: ${uniqueVacancies.size}`);
+  log(`Found ${vacancies.length} vacancies`);
 
   const newData: { [key: string]: any }[] = [];
 
-  for (const [vacancyLink, vacancyData] of Array.from(uniqueVacancies)) {
-    log(`Processing vacancy link: ${vacancyLink}`);
+  for (const vacancy of vacancies) {
+    log(`Processing vacancy: ${vacancy.link}`);
     try {
-      const vacancyInfos = await fetchVacancyContactInfo(vacancyLink, accessToken, log, vacancyLimit);
+      const vacancyInfos = await fetchVacancyContactInfo(vacancy.link, accessToken, log, vacancyLimit);
       
       vacancyInfos.forEach((vacancyInfo, index) => {
         log(`API response for vacancy ${index + 1}:`);
@@ -157,18 +163,18 @@ async function processSheetData(
         const phoneComment = phoneInfo?.comment || '';
 
         newData.push({
-          companyName: vacancyData.companyName,
-          inn: vacancyData.inn,
+          companyName: vacancy.companyName,
+          inn: vacancy.inn,
           fullName: vacancyInfo.contacts?.name || 'N/A',
           email: vacancyInfo.contacts?.email || 'N/A',
           phone: phoneNumber,
           phoneComment: phoneComment,
-          individualVacancyLink: vacancyInfo.alternate_url || vacancyLink,
+          individualVacancyLink: vacancyInfo.alternate_url || vacancy.link,
           apiResponse: vacancyInfo
         });
       });
     } catch (error: unknown) {
-      log(`Error processing vacancy ${vacancyLink}: ${error instanceof Error ? error.message : String(error)}`);
+      log(`Error processing vacancy ${vacancy.link}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
