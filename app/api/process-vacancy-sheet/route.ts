@@ -8,6 +8,7 @@ import fs from 'fs/promises';
 
 export async function POST(request: NextRequest) {
   const logs: string[] = [];
+  const startTime = Date.now();
   const log = (message: string) => {
     console.log(message); // Still log to server console
     logs.push(message); // Store log in array
@@ -44,21 +45,27 @@ export async function POST(request: NextRequest) {
 
     const formattedData = formatDataForDisplay(originalData, newData);
     
+    const executionTime = Date.now() - startTime;
+    log(`Total execution time: ${executionTime}ms`);
+
     return NextResponse.json({ 
       message: 'Google Sheet updated successfully',
       data: formattedData,
       logs: logs, // Include logs in the response
       sheetData: originalData,
       updatedRows: newData,
-      apiResponses: newData.map(row => row.apiResponse)
+      apiResponses: newData.map(row => row.apiResponse),
+      executionTime: executionTime // Add execution time to response
     });
   } catch (error: unknown) {
+    const executionTime = Date.now() - startTime;
     console.error('Error processing Google Sheet:', error);
     return NextResponse.json({ 
       error: 'Failed to process Google Sheet', 
       details: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      logs: logs
+      logs: logs,
+      executionTime: executionTime // Add execution time to error response too
     }, { status: 500 });
   }
 }
