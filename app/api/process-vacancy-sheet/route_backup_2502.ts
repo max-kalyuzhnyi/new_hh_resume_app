@@ -147,42 +147,34 @@ async function processSheetData(
 
   log(`Found ${vacancies.length} vacancies`);
 
-  const CHUNK_SIZE = 10; // Process 10 vacancies at a time
   const newData: { [key: string]: any }[] = [];
 
-  // Process vacancies in chunks
-  for (let i = 0; i < vacancies.length; i += CHUNK_SIZE) {
-    const chunk = vacancies.slice(i, i + CHUNK_SIZE);
-    const chunkPromises = chunk.map(vacancy => 
-      fetchVacancyContactInfo(vacancy.link, accessToken, log, vacancyLimit)
-        .then(vacancyInfos => ({vacancy, vacancyInfos}))
-        .catch(error => {
-          log(`Error processing vacancy ${vacancy.link}: ${error}`);
-          return {vacancy, vacancyInfos: []};
-        })
-    );
+  for (const vacancy of vacancies) {
+    log(`Processing vacancy: ${vacancy.link}`);
+    try {
+      const vacancyInfos = await fetchVacancyContactInfo(vacancy.link, accessToken, log, vacancyLimit);
+      
+      vacancyInfos.forEach((vacancyInfo, index) => {
+        log(`API response for vacancy ${index + 1}:`);
+        log(JSON.stringify(vacancyInfo, null, 2));
 
-    const results = await Promise.all(chunkPromises);
-
-    results.forEach(({vacancy, vacancyInfos}) => {
-      vacancyInfos.forEach(vacancyInfo => {
         const phoneInfo = vacancyInfo.contacts?.phones?.[0];
+        const phoneNumber = phoneInfo?.formatted || 'N/A';
+        const phoneComment = phoneInfo?.comment || '';
+
         newData.push({
           companyName: vacancy.companyName,
           inn: vacancy.inn,
           fullName: vacancyInfo.contacts?.name || 'N/A',
-          email: vacancyInfo.contacts?.email || 'N/A', 
-          phone: phoneInfo?.formatted || 'N/A',
-          phoneComment: phoneInfo?.comment || '',
+          email: vacancyInfo.contacts?.email || 'N/A',
+          phone: phoneNumber,
+          phoneComment: phoneComment,
           individualVacancyLink: vacancyInfo.alternate_url || vacancy.link,
           apiResponse: vacancyInfo
         });
       });
-    });
-
-    // Add delay between chunks to avoid rate limiting
-    if (i + CHUNK_SIZE < vacancies.length) {
-      await delay(1000);
+    } catch (error: unknown) {
+      log(`Error processing vacancy ${vacancy.link}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -197,11 +189,8 @@ async function fetchVacancyContactInfo(
 ): Promise<any[]> {
   log(`Fetching vacancy info for: ${vacancyLink}`);
   
-  const response = await fetch(vacancyLink, { 
-    redirect: 'follow',
-    // Add timeout
-    signal: AbortSignal.timeout(30000) // 30 second timeout
-  });
+  // Follow redirects to get the final URL
+  const response = await fetch(vacancyLink, { redirect: 'follow' });
   const finalUrl = response.url;
   log(`Final URL after potential redirects: ${finalUrl}`);
   
@@ -456,15 +445,5 @@ function extractVacancyLinks($: cheerio.CheerioAPI, log: (message: string) => vo
   }
   
   return vacancyLinks;
-}
-
-// Add timeout utility
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout')), ms)
-    )
-  ]) as Promise<T>;
 }
 
